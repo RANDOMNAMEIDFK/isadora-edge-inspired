@@ -1,0 +1,48 @@
+[gd_scene load_steps=5 format=3 uid="uid://oj6t6o8mhp8m"]
+
+[ext_resource type="Script" path="res://scripts/player.gd"]
+[ext_resource type="Texture2D" uid="uid://c4xuvgi8n3uo5" path="res://assets/player_placeholder.png"]
+[ext_resource type="Texture2D" uid="uid://dkh0xzqcpqkxrt" path="res://assets/enemy_placeholder.png"]
+[ext_resource type="Texture2D" uid="uid://cw0kh4l0tqkp1" path="res://assets/tileset_placeholder.png"]
+
+[sub_resource type="CapsuleShape2D" id="shape_0"]
+
+[sub_resource type="TileSet" id="tileset_0"]
+tile_size = Vector2i(32, 32)
+
+[sub_resource type="CapsuleShape2D" id="shape_1"]
+
+[node name="TestLevel" type="Node2D"]
+
+[node name="TileMap" type="TileMap" parent="."]
+tile_set = SubResource("tileset_0")
+format = 2
+
+[node name="Player" type="CharacterBody2D" parent="."]
+position = Vector2(100, 300)
+script = ExtResource("1")
+
+[node name="Sprite2D" type="Sprite2D" parent="Player"]
+texture = ExtResource("2")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
+shape = SubResource("shape_0")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Player"]
+
+[node name="Camera2D" type="Camera2D" parent="Player"]
+zoom = Vector2(1.5, 1.5)
+make_current = true
+
+[node name="Enemy" type="CharacterBody2D" parent="."]
+position = Vector2(400, 300)
+
+[node name="Sprite2D" type="Sprite2D" parent="Enemy"]
+texture = ExtResource("3")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Enemy"]
+shape = SubResource("shape_1")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Enemy"]
+
+[node name="DetectionArea2D" type="Area2D" parent="Enemy"]
