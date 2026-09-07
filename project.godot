@@ -1,0 +1,22 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are loss-prone and hard to understand.
+
+[application]
+
+config/name="Isadora's Edge Inspired"
+config/description="A 2D Metroidvania action platformer"
+run/main_scene="res://scenes/main_menu.tscn"
+config/features=PackedStringArray("4.1", "GL Compatibility")
+config/icon="res://assets/icon.svg"
+
+[physics]
+
+physics_engine_3d="GodotPhysics3D"
+2d/physics_engine="GodotPhysics2D"
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
