@@ -27,6 +27,7 @@ var jump_buffer_counter: float = 0.0
 # State
 var is_on_wall: bool = false
 var wall_slide_speed: float = 100.0
+var health: float = 100.0
 
 @onready var sprite = $Sprite2D
 @onready var collision = $CollisionShape2D

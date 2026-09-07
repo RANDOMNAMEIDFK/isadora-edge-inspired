@@ -7,7 +7,7 @@
 config/name="Isadora's Edge Inspired"
 config/description="A 2D Metroidvania action platformer"
 run/main_scene="res://scenes/main_menu.tscn"
-config/features=PackedStringArray("4.1", "GL Compatibility")
+config/features=PackedStringArray("4.1", "GL Compatibility", "web")
 config/icon="res://assets/icon.svg"
 
 [physics]
@@ -20,3 +20,9 @@ physics_engine_3d="GodotPhysics3D"
 textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+renderer/textures/vram_compression/import_etc2_astc=true
+
+[web]
+
+html/export_icon=true
+html/export_icon_chrome=true

@@ -20,21 +20,16 @@ func setup_input_map():
 	# Check if actions exist, if not create them
 	if not InputMap.has_action(JUMP):
 		InputMap.add_action(JUMP)
-		InputMap.action_add_event(JUMP, InputEventKey.new())
+		var key = InputEventKey.new()
+		key.keycode = KEY_SPACE
+		InputMap.action_add_event(JUMP, key)
 		InputMap.action_set_deadzone(JUMP, 0.0)
 	
 	if not InputMap.has_action(DASH):
 		InputMap.add_action(DASH)
-		InputMap.action_add_event(DASH, InputEventKey.new())
-	
-	if not InputMap.has_action(ATTACK_LIGHT):
-		InputMap.add_action(ATTACK_LIGHT)
-	
-	if not InputMap.has_action(ATTACK_HEAVY):
-		InputMap.add_action(ATTACK_HEAVY)
-	
-	if not InputMap.has_action(INTERACT):
-		InputMap.add_action(INTERACT)
+		var key = InputEventKey.new()
+		key.keycode = KEY_SHIFT
+		InputMap.action_add_event(DASH, key)
 
 func get_movement_input() -> Vector2:
 	return Vector2(

@@ -1,32 +1,51 @@
 [gd_scene load_steps=5 format=3 uid="uid://oj6t6o8mhp8m"]
 
 [ext_resource type="Script" path="res://scripts/player.gd"]
+[ext_resource type="Script" path="res://scripts/test_level.gd"]
 [ext_resource type="Texture2D" uid="uid://c4xuvgi8n3uo5" path="res://assets/player_placeholder.png"]
 [ext_resource type="Texture2D" uid="uid://dkh0xzqcpqkxrt" path="res://assets/enemy_placeholder.png"]
-[ext_resource type="Texture2D" uid="uid://cw0kh4l0tqkp1" path="res://assets/tileset_placeholder.png"]
 
-[sub_resource type="CapsuleShape2D" id="shape_0"]
+[sub_resource type="RectangleShape2D" id="rect_shape_ground"]
+size = Vector2(1024, 50)
 
-[sub_resource type="TileSet" id="tileset_0"]
-tile_size = Vector2i(32, 32)
+[sub_resource type="CapsuleShape2D" id="player_shape"]
+radius = 8.0
+height = 32.0
 
-[sub_resource type="CapsuleShape2D" id="shape_1"]
+[sub_resource type="RectangleShape2D" id="platform_shape"]
+size = Vector2(200, 20)
+
+[sub_resource type="CapsuleShape2D" id="enemy_shape"]
+radius = 8.0
+height = 32.0
 
 [node name="TestLevel" type="Node2D"]
+script = ExtResource("2")
 
-[node name="TileMap" type="TileMap" parent="."]
-tile_set = SubResource("tileset_0")
-format = 2
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="ColorRect" type="ColorRect" parent="CanvasLayer"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.1, 0.12, 0.15, 1)
+
+[node name="UILabel" type="Label" parent="CanvasLayer"]
+margin_left = 10.0
+margin_top = 10.0
+margin_right = 400.0
+margin_bottom = 50.0
+text = "Controls: Arrow Keys = Move | Space = Jump | Shift = Dash"
 
 [node name="Player" type="CharacterBody2D" parent="."]
 position = Vector2(100, 300)
 script = ExtResource("1")
 
 [node name="Sprite2D" type="Sprite2D" parent="Player"]
-texture = ExtResource("2")
+scale = Vector2(2, 2)
+self_modulate = Color(0, 0.7, 1, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
-shape = SubResource("shape_0")
+shape = SubResource("player_shape")
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="Player"]
 
@@ -34,14 +53,72 @@ shape = SubResource("shape_0")
 zoom = Vector2(1.5, 1.5)
 make_current = true
 
-[node name="Enemy" type="CharacterBody2D" parent="."]
-position = Vector2(400, 300)
+[node name="Ground" type="StaticBody2D" parent="."]
+position = Vector2(0, 550)
 
-[node name="Sprite2D" type="Sprite2D" parent="Enemy"]
-texture = ExtResource("3")
+[node name="ColorRect" type="ColorRect" parent="Ground"]
+offset_left = -500.0
+offset_top = -10.0
+offset_right = 1500.0
+offset_bottom = 60.0
+color = Color(0.2, 0.6, 0.2, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+position = Vector2(512, 0)
+shape = SubResource("rect_shape_ground")
+
+[node name="Platform1" type="StaticBody2D" parent="."]
+position = Vector2(300, 450)
+
+[node name="ColorRect" type="ColorRect" parent="Platform1"]
+offset_left = -100.0
+offset_top = -10.0
+offset_right = 100.0
+offset_bottom = 10.0
+color = Color(0.3, 0.5, 0.8, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform1"]
+shape = SubResource("platform_shape")
+
+[node name="Platform2" type="StaticBody2D" parent="."]
+position = Vector2(600, 350)
+
+[node name="ColorRect" type="ColorRect" parent="Platform2"]
+offset_left = -100.0
+offset_top = -10.0
+offset_right = 100.0
+offset_bottom = 10.0
+color = Color(0.3, 0.5, 0.8, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform2"]
+shape = SubResource("platform_shape")
+
+[node name="Platform3" type="StaticBody2D" parent="."]
+position = Vector2(300, 250)
+
+[node name="ColorRect" type="ColorRect" parent="Platform3"]
+offset_left = -100.0
+offset_top = -10.0
+offset_right = 100.0
+offset_bottom = 10.0
+color = Color(0.3, 0.5, 0.8, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform3"]
+shape = SubResource("platform_shape")
+
+[node name="Enemy" type="CharacterBody2D" parent="."]
+position = Vector2(750, 300)
+script = ExtResource("3")
+
+[node name="ColorRect" type="ColorRect" parent="Enemy"]
+offset_left = -8.0
+offset_top = -16.0
+offset_right = 8.0
+offset_bottom = 16.0
+color = Color(1, 0.3, 0.3, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Enemy"]
-shape = SubResource("shape_1")
+shape = SubResource("enemy_shape")
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="Enemy"]
 
