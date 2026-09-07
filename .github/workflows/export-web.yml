@@ -1,0 +1,77 @@
+name: Export Web Build
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.1.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          lfs: true
+
+      - name: Setup export templates
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates/4.1.1.stable
+          cd ~/.local/share/godot/export_templates/4.1.1.stable
+          wget -q https://github.com/godotengine/godot-build-scripts/releases/download/4.1.1-stable/Godot_v4.1.1-stable_export_templates.tpz
+          unzip -q Godot_v4.1.1-stable_export_templates.tpz
+          rm Godot_v4.1.1-stable_export_templates.tpz
+
+      - name: Create export preset
+        run: |
+          mkdir -p ~/.config/godot
+          cat > ~/.config/godot/export_presets.cfg << 'EOF'
+          [preset.0]
+          name="Web"
+          platform="Web"
+          runnable=true
+          custom_features=""
+          export_filter="all_resources"
+          export_files=""
+          include_filter=""
+          exclude_filter=""
+          export_path="build/index.html"
+          encryption_include_filters=""
+          encryption_exclude_filters=""
+          encrypt_key=""
+          
+          [preset.0.options]
+          custom_template/debug=""
+          custom_template/release=""
+          variant/multithread=false
+          variant/extensions_support=false
+          html/export_icon=true
+          html/export_icon_chrome=true
+          html/custom_html_shell=""
+          html/head_include=""
+          html/canvas_resize_policy=2
+          html/focus_canvas_on_start=true
+          html/experimental_virtual_keyboard=false
+          progressive_web_app/enabled=true
+          progressive_web_app/offline_page=""
+          EOF
+
+      - name: Build Web
+        run: godot --headless --export-release Web
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: godot-web-build
+          path: build/
+          retention-days: 30
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build
