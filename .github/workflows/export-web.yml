@@ -9,58 +9,22 @@ on:
 jobs:
   export:
     runs-on: ubuntu-latest
-    container:
-      image: barichello/godot-ci:4.1.1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          lfs: true
 
-      - name: Setup export templates
+      - name: Install Godot
         run: |
-          mkdir -p ~/.local/share/godot/export_templates/4.1.1.stable
-          cd ~/.local/share/godot/export_templates/4.1.1.stable
-          wget -q https://github.com/godotengine/godot-build-scripts/releases/download/4.1.1-stable/Godot_v4.1.1-stable_export_templates.tpz
-          unzip -q Godot_v4.1.1-stable_export_templates.tpz
-          rm Godot_v4.1.1-stable_export_templates.tpz
+          cd /tmp
+          wget -q https://github.com/godotengine/godot-releases/releases/download/4.1.1-stable/Godot_v4.1.1-stable_linux.x86_64.zip
+          unzip -q Godot_v4.1.1-stable_linux.x86_64.zip
+          chmod +x Godot_v4.1.1-stable_linux.x86_64
+          echo "/tmp" >> $GITHUB_PATH
 
-      - name: Create export preset
+      - name: Export to HTML5
         run: |
-          mkdir -p ~/.config/godot
-          cat > ~/.config/godot/export_presets.cfg << 'EOF'
-          [preset.0]
-          name="Web"
-          platform="Web"
-          runnable=true
-          custom_features=""
-          export_filter="all_resources"
-          export_files=""
-          include_filter=""
-          exclude_filter=""
-          export_path="build/index.html"
-          encryption_include_filters=""
-          encryption_exclude_filters=""
-          encrypt_key=""
-          
-          [preset.0.options]
-          custom_template/debug=""
-          custom_template/release=""
-          variant/multithread=false
-          variant/extensions_support=false
-          html/export_icon=true
-          html/export_icon_chrome=true
-          html/custom_html_shell=""
-          html/head_include=""
-          html/canvas_resize_policy=2
-          html/focus_canvas_on_start=true
-          html/experimental_virtual_keyboard=false
-          progressive_web_app/enabled=true
-          progressive_web_app/offline_page=""
-          EOF
-
-      - name: Build Web
-        run: godot --headless --export-release Web
+          mkdir -p ./build
+          Godot_v4.1.1-stable_linux.x86_64 --headless --export-release Web ./build/index.html
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
