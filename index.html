@@ -42,8 +42,21 @@
             top: 10px;
             left: 10px;
             color: #00d4ff;
-            font-size: 14px;
-            background: rgba(0, 0, 0, 0.7);
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 10;
+            font-weight: bold;
+        }
+        
+        #info {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            color: #00d4ff;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.8);
             padding: 10px;
             border-radius: 5px;
             z-index: 10;
@@ -52,10 +65,15 @@
 </head>
 <body>
     <div id="controls">
-        <strong>Controls:</strong><br>
-        ← → Arrow Keys = Move<br>
-        SPACE = Jump<br>
-        SHIFT = Dash
+        <strong>⌨️ CONTROLS</strong><br>
+        ← → = Move<br>
+        ↑ = Jump<br>
+        SHIFT = Dash<br>
+        R = Reset
+    </div>
+    <div id="info">
+        <strong>🎮 LEVEL</strong><br>
+        <span id="levelText">1</span>
     </div>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
@@ -67,8 +85,8 @@
         
         // Set canvas size
         function resizeCanvas() {
-            canvas.width = Math.min(window.innerWidth, 1024);
-            canvas.height = Math.min(window.innerHeight, 768);
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
@@ -99,25 +117,91 @@
             jumpBufferTime: 0,
             isOnWall: false,
             health: 100,
-            flipH: false
+            flipH: false,
+            startX: 100,
+            startY: 300
+        };
+        
+        // Game state
+        let gameState = {
+            level: 1,
+            cameraX: 0,
+            cameraY: 0
         };
         
         // Input handling
         const keys = {};
         window.addEventListener('keydown', (e) => {
             keys[e.key.toLowerCase()] = true;
+            if (e.key.toLowerCase() === 'r') resetPlayer();
         });
         window.addEventListener('keyup', (e) => {
             keys[e.key.toLowerCase()] = false;
         });
         
-        // Platforms
-        const platforms = [
-            { x: 0, y: 550, width: 1024, height: 50, color: '#33AA33' }, // Ground
-            { x: 300, y: 450, width: 200, height: 20, color: '#4D7FFF' },
-            { x: 600, y: 350, width: 200, height: 20, color: '#4D7FFF' },
-            { x: 300, y: 250, width: 200, height: 20, color: '#4D7FFF' }
+        function resetPlayer() {
+            player.x = player.startX;
+            player.y = player.startY;
+            player.velocityX = 0;
+            player.velocityY = 0;
+            player.isJumping = false;
+            player.isDashing = false;
+            player.canDash = true;
+        }
+        
+        // Platforms - Level 1
+        const platformsLevel1 = [
+            // Ground
+            { x: 0, y: 550, width: 1200, height: 50, color: '#33AA33' },
+            
+            // First section - staircase
+            { x: 300, y: 470, width: 80, height: 20, color: '#4D7FFF' },
+            { x: 420, y: 410, width: 80, height: 20, color: '#4D7FFF' },
+            { x: 540, y: 350, width: 80, height: 20, color: '#4D7FFF' },
+            { x: 660, y: 290, width: 80, height: 20, color: '#4D7FFF' },
+            
+            // Moving platform (simulated)
+            { x: 850, y: 350, width: 100, height: 20, color: '#FFD700' },
+            
+            // Jump gap
+            { x: 1050, y: 400, width: 80, height: 20, color: '#4D7FFF' },
+            { x: 1180, y: 350, width: 80, height: 20, color: '#4D7FFF' },
+            
+            // Platform spike obstacle
+            { x: 1350, y: 450, width: 150, height: 20, color: '#FF6B6B' },
+            
+            // Narrow platforms
+            { x: 1600, y: 350, width: 40, height: 20, color: '#4D7FFF' },
+            { x: 1720, y: 300, width: 40, height: 20, color: '#4D7FFF' },
+            { x: 1840, y: 250, width: 40, height: 20, color: '#4D7FFF' },
+            
+            // Wide landing area
+            { x: 1900, y: 400, width: 200, height: 20, color: '#33AA33' },
         ];
+        
+        // Platforms - Level 2
+        const platformsLevel2 = [
+            // Ground
+            { x: 0, y: 550, width: 1200, height: 50, color: '#33AA33' },
+            
+            // Spiral pattern
+            { x: 250, y: 450, width: 100, height: 20, color: '#4D7FFF' },
+            { x: 450, y: 380, width: 100, height: 20, color: '#4D7FFF' },
+            { x: 600, y: 320, width: 80, height: 20, color: '#4D7FFF' },
+            { x: 750, y: 250, width: 80, height: 20, color: '#4D7FFF' },
+            { x: 880, y: 180, width: 80, height: 20, color: '#4D7FFF' },
+            
+            // Dash section - requires rapid dashing
+            { x: 1100, y: 300, width: 60, height: 20, color: '#FF00FF' },
+            { x: 1200, y: 200, width: 60, height: 20, color: '#FF00FF' },
+            { x: 1300, y: 300, width: 60, height: 20, color: '#FF00FF' },
+            { x: 1400, y: 200, width: 60, height: 20, color: '#FF00FF' },
+            
+            // Final section - wide platforms
+            { x: 1600, y: 350, width: 200, height: 20, color: '#33AA33' },
+        ];
+        
+        let platforms = platformsLevel1;
         
         // Collision detection
         function isColliding(rect1, rect2) {
@@ -145,6 +229,23 @@
             }
             
             return isOnGround;
+        }
+        
+        // Check level completion
+        function checkLevelComplete() {
+            if (gameState.level === 1 && player.x > 1950 && player.y > 350) {
+                gameState.level = 2;
+                platforms = platformsLevel2;
+                player.startX = 100;
+                player.startY = 300;
+                resetPlayer();
+            } else if (gameState.level === 2 && player.x > 1650 && player.y > 320) {
+                gameState.level = 3;
+                platforms = platformsLevel1; // Loop back
+                player.startX = 100;
+                player.startY = 300;
+                resetPlayer();
+            }
         }
         
         function update(deltaTime) {
@@ -225,13 +326,17 @@
             player.x += player.velocityX * deltaTime;
             player.y += player.velocityY * deltaTime;
             
+            // Update camera to follow player
+            gameState.cameraX = player.x - canvas.width / 4;
+            gameState.cameraY = Math.max(0, player.y - canvas.height / 3);
+            
             // Reset if fell off
-            if (player.y > 600) {
-                player.x = 100;
-                player.y = 300;
-                player.velocityX = 0;
-                player.velocityY = 0;
+            if (player.y > 700) {
+                resetPlayer();
             }
+            
+            // Check level complete
+            checkLevelComplete();
         }
         
         function draw() {
@@ -239,18 +344,42 @@
             ctx.fillStyle = '#1a1f2e';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
+            // Draw background grid
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.05)';
+            ctx.lineWidth = 1;
+            for (let x = -gameState.cameraX % 50; x < canvas.width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = -gameState.cameraY % 50; y < canvas.height; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
             // Draw platforms
             for (let platform of platforms) {
-                ctx.fillStyle = platform.color;
-                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+                const screenX = platform.x - gameState.cameraX;
+                const screenY = platform.y - gameState.cameraY;
+                
+                if (screenX + platform.width > -50 && screenX < canvas.width + 50) {
+                    ctx.fillStyle = platform.color;
+                    ctx.fillRect(screenX, screenY, platform.width, platform.height);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(screenX, screenY, platform.width, platform.height);
+                }
             }
             
             // Draw player
+            const playerScreenX = player.x - gameState.cameraX;
+            const playerScreenY = player.y - gameState.cameraY;
+            
             ctx.save();
-            ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+            ctx.translate(playerScreenX + player.width / 2, playerScreenY + player.height / 2);
             if (player.flipH) ctx.scale(-1, 1);
             ctx.fillStyle = player.isDashing ? '#ff6b6b' : '#00d4ff';
             ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
@@ -262,10 +391,10 @@
             
             // Draw UI
             ctx.fillStyle = '#00d4ff';
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText(`Level: ${gameState.level}`, 20, 100);
             ctx.font = '14px Arial';
-            ctx.fillText(`Health: ${player.health}`, 10, 30);
-            ctx.fillText(`Dash: ${player.canDash ? '✓' : '✗'}`, 10, 50);
-            ctx.fillText(`Pos: ${Math.floor(player.x)}, ${Math.floor(player.y)}`, 10, 70);
+            ctx.fillText(`X: ${Math.floor(player.x)} | Dash: ${player.canDash ? '✓' : '✗'}`, 20, 120);
         }
         
         let lastTime = Date.now();
@@ -279,6 +408,11 @@
             
             requestAnimationFrame(gameLoop);
         }
+        
+        // Update level text
+        setInterval(() => {
+            document.getElementById('levelText').textContent = gameState.level;
+        }, 100);
         
         gameLoop();
     </script>
