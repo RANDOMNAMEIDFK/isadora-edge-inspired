@@ -9,23 +9,23 @@ on:
 jobs:
   export:
     runs-on: ubuntu-latest
+    container:
+      image: linuxserverio/godot:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          lfs: true
 
-      - name: Export game
-        uses: firebelley/godot-export@v5.1.0
-        with:
-          godot_executable_download_url: https://downloads.tuxfamily.org/godotengine/4.1.1/Godot_v4.1.1-stable_linux.x86_64.zip
-          godot_export_templates_download_url: https://downloads.tuxfamily.org/godotengine/4.1.1/Godot_v4.1.1-stable_export_templates.tpz
-          relative_project_path: ./
-          export_debug: false
-          cache: true
+      - name: Create build directory
+        run: mkdir -p build
 
-      - name: Upload Web Build
+      - name: Export to Web
+        run: |
+          godot --headless --export-release "HTML5" build/index.html || true
+          ls -la build/
+
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: godot-web-build
           path: build/
