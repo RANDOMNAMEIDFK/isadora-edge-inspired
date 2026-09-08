@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isadora's Edge Inspired</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #1a1a2e;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        canvas {
+            display: block;
+            background: #0f1015;
+            border: 2px solid #00d4ff;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+        
+        #gameContainer {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #controls {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: #00d4ff;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <strong>Controls:</strong><br>
+        ← → Arrow Keys = Move<br>
+        SPACE = Jump<br>
+        SHIFT = Dash
+    </div>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = Math.min(window.innerWidth, 1024);
+            canvas.height = Math.min(window.innerHeight, 768);
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Game constants
+        const GRAVITY = 1200;
+        const MOVE_SPEED = 200;
+        const JUMP_FORCE = -400;
+        const DASH_SPEED = 600;
+        const DASH_DURATION = 0.15;
+        const DASH_COOLDOWN = 0.5;
+        const MAX_FALL_SPEED = 500;
+        
+        // Player object
+        const player = {
+            x: 100,
+            y: 300,
+            width: 16,
+            height: 32,
+            velocityX: 0,
+            velocityY: 0,
+            isJumping: false,
+            isDashing: false,
+            dashDirection: { x: 0, y: 0 },
+            dashTime: 0,
+            canDash: true,
+            dashCooldownTime: 0,
+            jumpBufferTime: 0,
+            isOnWall: false,
+            health: 100,
+            flipH: false
+        };
+        
+        // Input handling
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+        });
+        window.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+        
+        // Platforms
+        const platforms = [
+            { x: 0, y: 550, width: 1024, height: 50, color: '#33AA33' }, // Ground
+            { x: 300, y: 450, width: 200, height: 20, color: '#4D7FFF' },
+            { x: 600, y: 350, width: 200, height: 20, color: '#4D7FFF' },
+            { x: 300, y: 250, width: 200, height: 20, color: '#4D7FFF' }
+        ];
+        
+        // Collision detection
+        function isColliding(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+        
+        function checkCollisions() {
+            let isOnGround = false;
+            let collidingPlatform = null;
+            
+            for (let platform of platforms) {
+                if (isColliding(player, platform)) {
+                    // Check if falling onto platform
+                    if (player.velocityY > 0 && player.y + player.height - player.velocityY * 0.016 <= platform.y) {
+                        isOnGround = true;
+                        player.y = platform.y - player.height;
+                        player.velocityY = 0;
+                        player.isJumping = false;
+                        collidingPlatform = platform;
+                    }
+                }
+            }
+            
+            return isOnGround;
+        }
+        
+        function update(deltaTime) {
+            // Handle input
+            let moveInput = 0;
+            if (keys['arrowleft'] || keys['a']) moveInput = -1;
+            if (keys['arrowright'] || keys['d']) moveInput = 1;
+            
+            // Handle dash
+            if ((keys[' '] || keys['shift']) && player.canDash && !player.isDashing) {
+                player.isDashing = true;
+                let dashX = moveInput || (player.flipH ? -1 : 1);
+                let dashY = 0;
+                if (keys['arrowup'] || keys['w']) dashY = -1;
+                if (keys['arrowdown'] || keys['s']) dashY = 1;
+                
+                let mag = Math.sqrt(dashX * dashX + dashY * dashY);
+                if (mag > 0) {
+                    player.dashDirection.x = dashX / mag;
+                    player.dashDirection.y = dashY / mag;
+                } else {
+                    player.dashDirection.x = player.flipH ? -1 : 1;
+                    player.dashDirection.y = 0;
+                }
+            }
+            
+            // Handle jump
+            if (keys['arrowup'] || keys['w']) {
+                player.jumpBufferTime = 0.1;
+            } else {
+                player.jumpBufferTime -= deltaTime;
+            }
+            
+            if (!player.isDashing) {
+                // Movement
+                if (moveInput !== 0) {
+                    player.velocityX = moveInput * MOVE_SPEED;
+                    player.flipH = moveInput < 0;
+                } else {
+                    player.velocityX *= 0.9; // Friction
+                }
+                
+                // Gravity
+                player.velocityY = Math.min(player.velocityY + GRAVITY * deltaTime, MAX_FALL_SPEED);
+                
+                // Check ground
+                let isOnGround = checkCollisions();
+                
+                // Jump
+                if (isOnGround && player.jumpBufferTime > 0) {
+                    player.velocityY = JUMP_FORCE;
+                    player.isJumping = true;
+                    player.jumpBufferTime = 0;
+                }
+            } else {
+                // Dashing
+                player.dashTime += deltaTime;
+                player.velocityX = player.dashDirection.x * DASH_SPEED;
+                player.velocityY = player.dashDirection.y * DASH_SPEED;
+                
+                if (player.dashTime >= DASH_DURATION) {
+                    player.isDashing = false;
+                    player.dashTime = 0;
+                    player.canDash = false;
+                    player.dashCooldownTime = DASH_COOLDOWN;
+                }
+            }
+            
+            // Update dash cooldown
+            if (!player.canDash) {
+                player.dashCooldownTime -= deltaTime;
+                if (player.dashCooldownTime <= 0) {
+                    player.canDash = true;
+                }
+            }
+            
+            // Update position
+            player.x += player.velocityX * deltaTime;
+            player.y += player.velocityY * deltaTime;
+            
+            // Reset if fell off
+            if (player.y > 600) {
+                player.x = 100;
+                player.y = 300;
+                player.velocityX = 0;
+                player.velocityY = 0;
+            }
+        }
+        
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#1a1f2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw platforms
+            for (let platform of platforms) {
+                ctx.fillStyle = platform.color;
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+            }
+            
+            // Draw player
+            ctx.save();
+            ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+            if (player.flipH) ctx.scale(-1, 1);
+            ctx.fillStyle = player.isDashing ? '#ff6b6b' : '#00d4ff';
+            ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
+            // Draw eyes
+            ctx.fillStyle = '#000';
+            ctx.fillRect(-4, -8, 2, 2);
+            ctx.fillRect(2, -8, 2, 2);
+            ctx.restore();
+            
+            // Draw UI
+            ctx.fillStyle = '#00d4ff';
+            ctx.font = '14px Arial';
+            ctx.fillText(`Health: ${player.health}`, 10, 30);
+            ctx.fillText(`Dash: ${player.canDash ? '✓' : '✗'}`, 10, 50);
+            ctx.fillText(`Pos: ${Math.floor(player.x)}, ${Math.floor(player.y)}`, 10, 70);
+        }
+        
+        let lastTime = Date.now();
+        function gameLoop() {
+            const currentTime = Date.now();
+            const deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            
+            update(Math.min(deltaTime, 0.016)); // Cap at 60fps
+            draw();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        gameLoop();
+    </script>
+</body>
+</html>
