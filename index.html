@@ -37,43 +37,74 @@
             align-items: center;
         }
         
-        #controls {
+        #hud {
             position: fixed;
             top: 10px;
             left: 10px;
             color: #00d4ff;
-            font-size: 12px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 10px;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
             border-radius: 5px;
             z-index: 10;
             font-weight: bold;
+            border: 2px solid #00d4ff;
         }
         
-        #info {
+        #stats {
             position: fixed;
             top: 10px;
             right: 10px;
-            color: #00d4ff;
-            font-size: 12px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 10px;
+            color: #FFD700;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
             border-radius: 5px;
             z-index: 10;
+            border: 2px solid #FFD700;
+        }
+        
+        #gameOver {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            color: #FF6B6B;
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 100;
+            display: none;
+            border: 3px solid #FF6B6B;
+        }
+        
+        #gameOver h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        #gameOver p {
+            font-size: 24px;
+            margin: 10px 0;
         }
     </style>
 </head>
 <body>
-    <div id="controls">
-        <strong>⌨️ CONTROLS</strong><br>
-        ← → = Move<br>
-        ↑ = Jump<br>
-        SHIFT = Dash<br>
-        R = Reset
+    <div id="hud">
+        <div>🎮 LEVEL: <span id="levelText">1</span></div>
+        <div>❤️ HEALTH: <span id="healthText">100</span></div>
+        <div>💰 COINS: <span id="coinsText">0</span></div>
     </div>
-    <div id="info">
-        <strong>🎮 LEVEL</strong><br>
-        <span id="levelText">1</span>
+    <div id="stats">
+        <div>⭐ SCORE: <span id="scoreText">0</span></div>
+        <div>🚀 DASH: <span id="dashText">✓</span></div>
+        <div>📍 X: <span id="xText">0</span></div>
+    </div>
+    <div id="gameOver">
+        <h1>GAME OVER</h1>
+        <p>Final Score: <span id="finalScore">0</span></p>
+        <p>Refresh to restart</p>
     </div>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
@@ -83,7 +114,6 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Set canvas size
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -108,25 +138,28 @@
             height: 32,
             velocityX: 0,
             velocityY: 0,
-            isJumping: false,
             isDashing: false,
             dashDirection: { x: 0, y: 0 },
             dashTime: 0,
             canDash: true,
             dashCooldownTime: 0,
             jumpBufferTime: 0,
-            isOnWall: false,
             health: 100,
+            maxHealth: 100,
             flipH: false,
             startX: 100,
-            startY: 300
+            startY: 300,
+            invincibilityTime: 0
         };
         
         // Game state
         let gameState = {
             level: 1,
             cameraX: 0,
-            cameraY: 0
+            cameraY: 0,
+            score: 0,
+            coinsCollected: 0,
+            gameOver: false
         };
         
         // Input handling
@@ -144,66 +177,218 @@
             player.y = player.startY;
             player.velocityX = 0;
             player.velocityY = 0;
-            player.isJumping = false;
             player.isDashing = false;
             player.canDash = true;
+            player.health = player.maxHealth;
+            player.invincibilityTime = 0;
         }
+        
+        // Coins
+        let coins = [];
+        
+        // Enemies
+        let enemies = [];
+        
+        class Enemy {
+            constructor(x, y, width = 20, height = 20, speed = 100, patrolDistance = 200) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.speed = speed;
+                this.patrolDistance = patrolDistance;
+                this.direction = 1;
+                this.startX = x;
+                this.health = 20;
+                this.type = 'normal'; // normal, flying, spike
+            }
+            
+            update(deltaTime) {
+                if (this.type === 'flying') {
+                    // Sine wave movement
+                    this.x += this.speed * this.direction * deltaTime;
+                    this.y += Math.sin(this.x / 50) * 50 * deltaTime;
+                } else {
+                    this.x += this.speed * this.direction * deltaTime;
+                }
+                
+                if (Math.abs(this.x - this.startX) > this.patrolDistance) {
+                    this.direction *= -1;
+                }
+            }
+            
+            draw(cameraX, cameraY) {
+                const screenX = this.x - cameraX;
+                const screenY = this.y - cameraY;
+                
+                if (this.type === 'spike') {
+                    ctx.fillStyle = '#FF6B6B';
+                    ctx.beginPath();
+                    ctx.moveTo(screenX + this.width / 2, screenY);
+                    ctx.lineTo(screenX + this.width, screenY + this.height);
+                    ctx.lineTo(screenX, screenY + this.height);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (this.type === 'flying') {
+                    ctx.fillStyle = '#FF00FF';
+                    ctx.beginPath();
+                    ctx.arc(screenX + this.width / 2, screenY + this.height / 2, this.width / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Eyes
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(screenX + 4, screenY + 5, 2, 2);
+                    ctx.fillRect(screenX + 12, screenY + 5, 2, 2);
+                } else {
+                    ctx.fillStyle = '#FF4444';
+                    ctx.fillRect(screenX, screenY, this.width, this.height);
+                    // Eyes
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(screenX + 3, screenY + 5, 2, 2);
+                    ctx.fillRect(screenX + 11, screenY + 5, 2, 2);
+                }
+            }
+        }
+        
+        class Coin {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.width = 10;
+                this.height = 10;
+                this.bobOffset = Math.random() * Math.PI * 2;
+                this.collected = false;
+            }
+            
+            update(deltaTime) {
+                this.bobOffset += deltaTime * 3;
+            }
+            
+            draw(cameraX, cameraY) {
+                const screenX = this.x - cameraX;
+                const screenY = this.y - cameraY + Math.sin(this.bobOffset) * 5;
+                
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, this.width / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#FFA500';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+        
+        class Particle {
+            constructor(x, y, vx, vy, color, life = 0.5) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.color = color;
+                this.life = life;
+                this.maxLife = life;
+                this.size = 5;
+            }
+            
+            update(deltaTime) {
+                this.x += this.vx * deltaTime;
+                this.y += this.vy * deltaTime;
+                this.vy += 300 * deltaTime; // gravity
+                this.life -= deltaTime;
+                this.size = (this.life / this.maxLife) * 5;
+            }
+            
+            draw(cameraX, cameraY) {
+                const screenX = this.x - cameraX;
+                const screenY = this.y - cameraY;
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.life / this.maxLife;
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+        
+        let particles = [];
         
         // Platforms - Level 1
         const platformsLevel1 = [
-            // Ground
-            { x: 0, y: 550, width: 1200, height: 50, color: '#33AA33' },
-            
-            // First section - staircase
+            { x: 0, y: 550, width: 1500, height: 50, color: '#33AA33' },
             { x: 300, y: 470, width: 80, height: 20, color: '#4D7FFF' },
             { x: 420, y: 410, width: 80, height: 20, color: '#4D7FFF' },
             { x: 540, y: 350, width: 80, height: 20, color: '#4D7FFF' },
             { x: 660, y: 290, width: 80, height: 20, color: '#4D7FFF' },
-            
-            // Moving platform (simulated)
             { x: 850, y: 350, width: 100, height: 20, color: '#FFD700' },
-            
-            // Jump gap
             { x: 1050, y: 400, width: 80, height: 20, color: '#4D7FFF' },
             { x: 1180, y: 350, width: 80, height: 20, color: '#4D7FFF' },
-            
-            // Platform spike obstacle
             { x: 1350, y: 450, width: 150, height: 20, color: '#FF6B6B' },
-            
-            // Narrow platforms
             { x: 1600, y: 350, width: 40, height: 20, color: '#4D7FFF' },
             { x: 1720, y: 300, width: 40, height: 20, color: '#4D7FFF' },
             { x: 1840, y: 250, width: 40, height: 20, color: '#4D7FFF' },
-            
-            // Wide landing area
-            { x: 1900, y: 400, width: 200, height: 20, color: '#33AA33' },
+            { x: 1900, y: 400, width: 300, height: 20, color: '#33AA33' }
         ];
         
-        // Platforms - Level 2
         const platformsLevel2 = [
-            // Ground
-            { x: 0, y: 550, width: 1200, height: 50, color: '#33AA33' },
-            
-            // Spiral pattern
+            { x: 0, y: 550, width: 1500, height: 50, color: '#33AA33' },
             { x: 250, y: 450, width: 100, height: 20, color: '#4D7FFF' },
             { x: 450, y: 380, width: 100, height: 20, color: '#4D7FFF' },
             { x: 600, y: 320, width: 80, height: 20, color: '#4D7FFF' },
             { x: 750, y: 250, width: 80, height: 20, color: '#4D7FFF' },
             { x: 880, y: 180, width: 80, height: 20, color: '#4D7FFF' },
-            
-            // Dash section - requires rapid dashing
             { x: 1100, y: 300, width: 60, height: 20, color: '#FF00FF' },
             { x: 1200, y: 200, width: 60, height: 20, color: '#FF00FF' },
             { x: 1300, y: 300, width: 60, height: 20, color: '#FF00FF' },
             { x: 1400, y: 200, width: 60, height: 20, color: '#FF00FF' },
-            
-            // Final section - wide platforms
-            { x: 1600, y: 350, width: 200, height: 20, color: '#33AA33' },
+            { x: 1600, y: 350, width: 300, height: 20, color: '#33AA33' }
         ];
         
         let platforms = platformsLevel1;
         
-        // Collision detection
+        function initLevel(level) {
+            coins = [];
+            enemies = [];
+            particles = [];
+            
+            if (level === 1) {
+                platforms = platformsLevel1;
+                // Add coins
+                coins.push(new Coin(300, 430));
+                coins.push(new Coin(420, 370));
+                coins.push(new Coin(540, 310));
+                coins.push(new Coin(660, 250));
+                coins.push(new Coin(850, 310));
+                coins.push(new Coin(1180, 310));
+                coins.push(new Coin(1950, 360));
+                
+                // Add enemies
+                enemies.push(new Enemy(400, 380, 20, 20, 80, 150));
+                enemies.push(new Enemy(700, 250, 20, 20, 100, 200));
+                enemies.push(new Enemy(1100, 300, 25, 25, 120, 300, 'flying'));
+                enemies[enemies.length - 1].type = 'flying';
+            } else if (level === 2) {
+                platforms = platformsLevel2;
+                // Add coins
+                coins.push(new Coin(250, 410));
+                coins.push(new Coin(450, 340));
+                coins.push(new Coin(600, 280));
+                coins.push(new Coin(750, 210));
+                coins.push(new Coin(880, 140));
+                coins.push(new Coin(1100, 260));
+                coins.push(new Coin(1200, 160));
+                coins.push(new Coin(1300, 260));
+                coins.push(new Coin(1400, 160));
+                coins.push(new Coin(1700, 310));
+                
+                // Add enemies
+                enemies.push(new Enemy(350, 400, 20, 20, 100, 200));
+                enemies.push(new Enemy(600, 280, 20, 20, 120, 200));
+                enemies.push(new Enemy(950, 150, 25, 25, 150, 200, 'flying'));
+                enemies[enemies.length - 1].type = 'flying';
+                enemies.push(new Enemy(1200, 250, 18, 25, 140, 250, 'spike'));
+                enemies[enemies.length - 1].type = 'spike';
+            }
+        }
+        
         function isColliding(rect1, rect2) {
             return rect1.x < rect2.x + rect2.width &&
                    rect1.x + rect1.width > rect2.x &&
@@ -213,35 +398,73 @@
         
         function checkCollisions() {
             let isOnGround = false;
-            let collidingPlatform = null;
             
             for (let platform of platforms) {
                 if (isColliding(player, platform)) {
-                    // Check if falling onto platform
                     if (player.velocityY > 0 && player.y + player.height - player.velocityY * 0.016 <= platform.y) {
                         isOnGround = true;
                         player.y = platform.y - player.height;
                         player.velocityY = 0;
-                        player.isJumping = false;
-                        collidingPlatform = platform;
                     }
                 }
             }
             
+            // Check coin collection
+            coins.forEach((coin, index) => {
+                if (isColliding(player, coin)) {
+                    gameState.score += 100;
+                    gameState.coinsCollected++;
+                    coins.splice(index, 1);
+                    // Particle effect
+                    for (let i = 0; i < 10; i++) {
+                        const angle = (Math.PI * 2 * i) / 10;
+                        particles.push(new Particle(
+                            coin.x, coin.y,
+                            Math.cos(angle) * 200,
+                            Math.sin(angle) * 200,
+                            '#FFD700',
+                            0.5
+                        ));
+                    }
+                }
+            });
+            
+            // Check enemy collision
+            enemies.forEach(enemy => {
+                if (isColliding(player, enemy)) {
+                    if (player.invincibilityTime <= 0) {
+                        player.health -= 20;
+                        player.invincibilityTime = 1;
+                        // Damage particles
+                        for (let i = 0; i < 5; i++) {
+                            particles.push(new Particle(
+                                player.x + player.width / 2,
+                                player.y + player.height / 2,
+                                (Math.random() - 0.5) * 300,
+                                Math.random() * -300,
+                                '#FF6B6B',
+                                0.3
+                            ));
+                        }
+                    }
+                }
+            });
+            
             return isOnGround;
         }
         
-        // Check level completion
         function checkLevelComplete() {
             if (gameState.level === 1 && player.x > 1950 && player.y > 350) {
                 gameState.level = 2;
-                platforms = platformsLevel2;
+                gameState.score += 500;
+                initLevel(2);
                 player.startX = 100;
                 player.startY = 300;
                 resetPlayer();
-            } else if (gameState.level === 2 && player.x > 1650 && player.y > 320) {
+            } else if (gameState.level === 2 && player.x > 1700 && player.y > 310) {
                 gameState.level = 3;
-                platforms = platformsLevel1; // Loop back
+                gameState.score += 1000;
+                initLevel(1);
                 player.startX = 100;
                 player.startY = 300;
                 resetPlayer();
@@ -249,12 +472,21 @@
         }
         
         function update(deltaTime) {
-            // Handle input
+            if (gameState.gameOver) return;
+            
+            if (player.health <= 0) {
+                gameState.gameOver = true;
+                document.getElementById('gameOver').style.display = 'block';
+                document.getElementById('finalScore').textContent = gameState.score;
+                return;
+            }
+            
+            player.invincibilityTime -= deltaTime;
+            
             let moveInput = 0;
             if (keys['arrowleft'] || keys['a']) moveInput = -1;
             if (keys['arrowright'] || keys['d']) moveInput = 1;
             
-            // Handle dash
             if ((keys[' '] || keys['shift']) && player.canDash && !player.isDashing) {
                 player.isDashing = true;
                 let dashX = moveInput || (player.flipH ? -1 : 1);
@@ -272,7 +504,6 @@
                 }
             }
             
-            // Handle jump
             if (keys['arrowup'] || keys['w']) {
                 player.jumpBufferTime = 0.1;
             } else {
@@ -280,28 +511,21 @@
             }
             
             if (!player.isDashing) {
-                // Movement
                 if (moveInput !== 0) {
                     player.velocityX = moveInput * MOVE_SPEED;
                     player.flipH = moveInput < 0;
                 } else {
-                    player.velocityX *= 0.9; // Friction
+                    player.velocityX *= 0.9;
                 }
                 
-                // Gravity
                 player.velocityY = Math.min(player.velocityY + GRAVITY * deltaTime, MAX_FALL_SPEED);
-                
-                // Check ground
                 let isOnGround = checkCollisions();
                 
-                // Jump
                 if (isOnGround && player.jumpBufferTime > 0) {
                     player.velocityY = JUMP_FORCE;
-                    player.isJumping = true;
                     player.jumpBufferTime = 0;
                 }
             } else {
-                // Dashing
                 player.dashTime += deltaTime;
                 player.velocityX = player.dashDirection.x * DASH_SPEED;
                 player.velocityY = player.dashDirection.y * DASH_SPEED;
@@ -314,7 +538,6 @@
                 }
             }
             
-            // Update dash cooldown
             if (!player.canDash) {
                 player.dashCooldownTime -= deltaTime;
                 if (player.dashCooldownTime <= 0) {
@@ -322,25 +545,35 @@
                 }
             }
             
-            // Update position
             player.x += player.velocityX * deltaTime;
             player.y += player.velocityY * deltaTime;
             
-            // Update camera to follow player
             gameState.cameraX = player.x - canvas.width / 4;
             gameState.cameraY = Math.max(0, player.y - canvas.height / 3);
             
-            // Reset if fell off
             if (player.y > 700) {
+                player.health -= 50;
                 resetPlayer();
             }
             
-            // Check level complete
+            // Update enemies
+            enemies.forEach(enemy => {
+                enemy.update(deltaTime);
+            });
+            
+            // Update coins
+            coins.forEach(coin => {
+                coin.update(deltaTime);
+            });
+            
+            // Update particles
+            particles = particles.filter(p => p.life > 0);
+            particles.forEach(p => p.update(deltaTime));
+            
             checkLevelComplete();
         }
         
         function draw() {
-            // Clear canvas
             ctx.fillStyle = '#1a1f2e';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
@@ -374,28 +607,45 @@
                 }
             }
             
+            // Draw coins
+            coins.forEach(coin => coin.draw(gameState.cameraX, gameState.cameraY));
+            
+            // Draw enemies
+            enemies.forEach(enemy => enemy.draw(gameState.cameraX, gameState.cameraY));
+            
+            // Draw particles
+            particles.forEach(p => p.draw(gameState.cameraX, gameState.cameraY));
+            
             // Draw player
             const playerScreenX = player.x - gameState.cameraX;
             const playerScreenY = player.y - gameState.cameraY;
             
             ctx.save();
+            if (player.invincibilityTime > 0 && Math.floor(player.invincibilityTime * 10) % 2) {
+                ctx.globalAlpha = 0.5; // Flash effect
+            }
             ctx.translate(playerScreenX + player.width / 2, playerScreenY + player.height / 2);
             if (player.flipH) ctx.scale(-1, 1);
             ctx.fillStyle = player.isDashing ? '#ff6b6b' : '#00d4ff';
             ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
-            // Draw eyes
             ctx.fillStyle = '#000';
             ctx.fillRect(-4, -8, 2, 2);
             ctx.fillRect(2, -8, 2, 2);
             ctx.restore();
-            
-            // Draw UI
-            ctx.fillStyle = '#00d4ff';
-            ctx.font = 'bold 16px Arial';
-            ctx.fillText(`Level: ${gameState.level}`, 20, 100);
-            ctx.font = '14px Arial';
-            ctx.fillText(`X: ${Math.floor(player.x)} | Dash: ${player.canDash ? '✓' : '✗'}`, 20, 120);
         }
+        
+        // Update HUD
+        function updateHUD() {
+            document.getElementById('levelText').textContent = gameState.level;
+            document.getElementById('healthText').textContent = Math.max(0, Math.floor(player.health));
+            document.getElementById('coinsText').textContent = gameState.coinsCollected;
+            document.getElementById('scoreText').textContent = gameState.score;
+            document.getElementById('dashText').textContent = player.canDash ? '✓' : '✗';
+            document.getElementById('xText').textContent = Math.floor(player.x);
+        }
+        
+        // Initialize level 1
+        initLevel(1);
         
         let lastTime = Date.now();
         function gameLoop() {
@@ -403,16 +653,12 @@
             const deltaTime = (currentTime - lastTime) / 1000;
             lastTime = currentTime;
             
-            update(Math.min(deltaTime, 0.016)); // Cap at 60fps
+            update(Math.min(deltaTime, 0.016));
             draw();
+            updateHUD();
             
             requestAnimationFrame(gameLoop);
         }
-        
-        // Update level text
-        setInterval(() => {
-            document.getElementById('levelText').textContent = gameState.level;
-        }, 100);
         
         gameLoop();
     </script>
